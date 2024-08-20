@@ -6,7 +6,7 @@ final class StatusBarConfigurator {
 
     static func updateIcon() {
         guard let button = item.button else { return }
-        button.title = "HC"
+        button.title = ""
         if UserDefaults.isPaused {
             button.image = NSImage(named:"StatusIconPaused")
             button.alternateImage = NSImage(named: "StatusIconPausedSelected")
