@@ -43,6 +43,7 @@ final class ApplicationsList {
         apps = []
         apps.append(contentsOf: systemApps)
         apps.append(contentsOf: userApps)
+        apps.append("Safari") // Ugly hack - These days Safari is located on separate secure volume
         apps.sort{$0.lowercased() < $1.lowercased()}
     }
 
