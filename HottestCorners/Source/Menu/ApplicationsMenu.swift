@@ -3,25 +3,37 @@ import ServiceManagement
 
 final class ApplicationsMenu: NSMenu {
 
+    private let searchField = NSSearchField(frame: NSRect(x: 8, y: 4, width: 244, height: 24))
+    private var favoriteItems: [NSMenuItem] = []
+    private var otherItems: [NSMenuItem] = []
+    private let favoritesSeparator = NSMenuItem.separator()
+    private let noResultsItem = NSMenuItem(title: "No Applications Found", action: nil, keyEquivalent: "")
+
     init(corner: MainMenu.CornerType) {
         super.init(title: "ApplicationsMenu-\(corner.menuTitle())")
 
-        addDoNothingItem()
+        addSearchItem()
+        let doNothingItem = addDoNothingItem()
         addSeparator()
 
         var selectedNothing = true
         ApplicationsList.shared.favoritesApps.forEach  {
-            addApplication(corner: corner, appName: $0)
+            favoriteItems.append(addApplication(corner: corner, appName: $0))
             if corner.applicationName == $0 { selectedNothing = false }
         }
-        addSeparator()
+        addItem(favoritesSeparator)
         ApplicationsList.shared.otherApps.forEach  {
-            addApplication(corner: corner, appName: $0)
+            otherItems.append(addApplication(corner: corner, appName: $0))
             if corner.applicationName == $0 { selectedNothing = false }
         }
+        noResultsItem.isEnabled = false
+        noResultsItem.isHidden = true
+        addItem(noResultsItem)
+        updateSearchResults(for: "")
+
         if selectedNothing {
             corner.removeApplication()
-            item(at: 0)?.state = .on
+            doNothingItem.state = .on
         }
     }
 
@@ -35,7 +47,18 @@ final class ApplicationsMenu: NSMenu {
 
 private extension ApplicationsMenu {
 
-    func addDoNothingItem() {
+    func addSearchItem() {
+        searchField.placeholderString = "Search Applications"
+        searchField.sendsSearchStringImmediately = true
+        searchField.delegate = self
+
+        let searchItem = NSMenuItem()
+        searchItem.view = NSView(frame: NSRect(x: 0, y: 0, width: 260, height: 32))
+        searchItem.view?.addSubview(searchField)
+        addItem(searchItem)
+    }
+
+    func addDoNothingItem() -> NSMenuItem {
         let item = addItem(
             withTitle: "Do Nothing",
             action: #selector(setDoNothing(_:)),
@@ -43,9 +66,10 @@ private extension ApplicationsMenu {
         )
         item.target = self
         item.tag = -1  // Just a magic number encoding "Nothing"
+        return item
     }
 
-    func addApplication(corner: MainMenu.CornerType, appName: String) {
+    func addApplication(corner: MainMenu.CornerType, appName: String) -> NSMenuItem {
         let item = addItem(
             withTitle: appName,
             action: #selector(setApplication(_:)),
@@ -55,6 +79,34 @@ private extension ApplicationsMenu {
         if corner.applicationName == appName {
             item.state = .on
         }
+        return item
+    }
+
+    func updateSearchResults(for query: String) {
+        let matches: (NSMenuItem) -> Bool = { item in
+            query.isEmpty || item.title.range(
+                of: query,
+                options: [.caseInsensitive, .diacriticInsensitive]
+            ) != nil
+        }
+
+        favoriteItems.forEach { $0.isHidden = !matches($0) }
+        otherItems.forEach { $0.isHidden = !matches($0) }
+
+        let hasFavoriteResults = favoriteItems.contains(where: { !$0.isHidden })
+        let hasOtherResults = otherItems.contains(where: { !$0.isHidden })
+        favoritesSeparator.isHidden = !hasFavoriteResults || !hasOtherResults
+        noResultsItem.isHidden = hasFavoriteResults || hasOtherResults
+    }
+
+}
+
+// MARK: - Search field delegate
+
+extension ApplicationsMenu: NSSearchFieldDelegate {
+
+    func controlTextDidChange(_ notification: Notification) {
+        updateSearchResults(for: searchField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
 }
